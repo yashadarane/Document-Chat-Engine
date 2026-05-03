@@ -1,0 +1,72 @@
+app:
+  name: "Document Chat Engine"
+  version: "2.1.0"
+  environment: "development"
+  log_level: "INFO"
+  max_upload_files: 3
+  max_pages_per_file: 5
+  max_file_size_mb: 10
+  allowed_extensions:
+    - ".pdf"
+    - ".png"
+    - ".jpg"
+    - ".jpeg"
+    - ".tif"
+    - ".tiff"
+    - ".bmp"
+
+context:
+  chunk_size_tokens: 360
+  chunk_overlap_tokens: 60
+  max_prompt_context_tokens: 2600
+  max_chunks_for_answer: 5
+  memory_turns: 3
+  memory_token_budget: 120
+  extractive_summary_tokens: 220
+
+routing:
+  default_provider: "local"
+  allow_ui_provider_override: true
+  enable_fallback: false
+  fallback_provider: "groq"
+
+local_llm:
+  active_model: "qwen25_15b_gguf"
+  backend: "llama_cpp"
+  display_name: "Qwen2.5 1.5B Instruct"
+  model_name: null
+  model_path: "./app/models/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+  device: "cpu"
+  max_context_tokens: 4096
+  max_new_tokens: 160
+  load_timeout_seconds: 240
+  generation_timeout_seconds: 90
+  temperature: 0.05
+  top_p: 0.9
+  repetition_penalty: 1.2
+
+gemini:
+  model_name: "gemini-2.5-flash"
+  api_key_env: "GEMINI_API_KEY"
+  max_context_tokens: 32768
+  max_new_tokens: 300
+  generation_timeout_seconds: 60
+  temperature: 0.1
+  top_p: 0.95
+
+groq:
+  model_name: "llama-3.3-70b-versatile"
+  api_key_env: "GROQ_API_KEY"
+  base_url: "https://api.groq.com/openai/v1/chat/completions"
+  max_context_tokens: 32768
+  max_new_tokens: 300
+  generation_timeout_seconds: 60
+  temperature: 0.1
+  top_p: 0.95
+
+ocr:
+  provider: "auto"
+  language: "eng"
+  tesseract_cmd: "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
+  gemini_model_name: null
+  gemini_max_output_tokens: 2048
