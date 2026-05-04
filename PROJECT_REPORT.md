@@ -8,11 +8,11 @@ The project builds a document-grounded chat engine for uploaded PDFs and images.
 
 The final provider setup is:
 
-- Local default: Qwen2.5 1.5B Instruct GGUF through `llama.cpp`
+- Default provider: Groq llama-3.3-70b-versatile through Groq's chat-completions API
 - Optional cloud provider: Gemini 2.5 Flash through Google AI Studio
-- Optional cloud provider: Groq llama-3.3-70b-versatile through Groq's chat-completions API
+- Optional local provider: Qwen2.5 1.5B Instruct GGUF through `llama.cpp`
 
-Qwen is now the only local model exposed in `config.yaml`. Phi-3 Mini and TinyLlama were removed from the active local model list because they were not the best final submission defaults for this app.
+Groq is now the default provider in `config.yaml`. Qwen is still the only local model exposed there, but it is optional rather than the startup default. Phi-3 Mini and TinyLlama were removed from the active local model list because they were not the best final submission defaults for this app.
 The Streamlit local-model dropdown was also removed because there is only one supported local model in the final configuration.
 
 ## Model Evaluation And Decision
@@ -23,7 +23,7 @@ Several small local models were considered:
 - Phi-3 Mini Instruct was stronger than TinyLlama, but it was heavier and not the cleanest default for this local CPU-focused demonstration.
 - Qwen2.5 1.5B Instruct gave the best practical balance: small enough for local `llama.cpp`, better instruction following than TinyLlama, and acceptable grounded-answer behavior when paired with strict prompting and context ranking.
 
-Gemini was retained because it is a strong hosted model and was already integrated. Groq was added as another hosted option using Groq's OpenAI-compatible chat-completions endpoint, configured with `GROQ_API_KEY`.
+Gemini was retained because it is a strong hosted model and was already integrated. Groq is used as the default hosted option through Groq's OpenAI-compatible chat-completions endpoint, configured with `GROQ_API_KEY`.
 
 ## Prompt Design
 
@@ -51,7 +51,7 @@ Defines validated configuration models. This includes application limits, contex
 
 `config.yaml`
 
-Stores the runtime configuration. The current local default is Qwen2.5 1.5B Instruct. Gemini and Groq are configured as optional hosted providers.
+Stores the runtime configuration. Groq is the default provider, Qwen2.5 1.5B Instruct remains available as the optional local provider, and Gemini is configured as another hosted provider.
 
 `app/services/document_ingestion.py`
 
@@ -103,13 +103,13 @@ All providers share the same `BaseTextProvider` interface. This keeps the chat e
 
 ### Fallback
 
-Fallback is optional and configured in `routing`. It is useful during demos because local model loading can fail if a GGUF file is missing or `llama-cpp-python` is not installed.
+Fallback is optional and configured in `routing`. The default route uses Groq, while local Qwen can be selected manually or used as the configured fallback target.
 
 ## Changes Made In This Update
 
 - Removed Phi-3 Mini from active local model options.
 - Removed TinyLlama from active local model options.
-- Made Qwen2.5 1.5B Instruct the default local model.
+- Made Groq the default answer provider and kept Qwen2.5 1.5B Instruct as the optional local model.
 - Removed the one-option local model selector from the sidebar.
 - Added `groq` as a provider option.
 - Added `GroqSettings` in `app/core/config.py`.
@@ -123,7 +123,7 @@ Fallback is optional and configured in `routing`. It is useful during demos beca
 
 ## What Changed During Development
 
-Earlier versions exposed several local models in the UI to compare behavior. That was useful during development, but not ideal for submission because weak or inconsistent models make the app look less reliable. The final config chooses one local model, Qwen, and keeps cloud providers available for fallback and comparison.
+Earlier versions exposed several local models in the UI to compare behavior. That was useful during development, but not ideal for submission because weak or inconsistent models make the app look less reliable. The final config defaults to Groq, keeps one optional local model, Qwen, and keeps Gemini available for comparison.
 
 The prompt also evolved toward a stricter grounded format. This was chosen because the application is judged on document faithfulness and system limitations, not creative generation.
 
@@ -138,7 +138,8 @@ The prompt also evolved toward a stricter grounded format. This was chosen becau
 
 The final system prioritizes reliability and clarity:
 
-- Qwen is the local default because it is practical on CPU and stronger than TinyLlama for this task.
+- Groq is the default provider for fast hosted responses.
+- Qwen is retained as the optional local model because it is practical on CPU and stronger than TinyLlama for this task.
 - TinyLlama and Phi were removed from the active UI to avoid presenting weaker or less consistent options.
-- Gemini and Groq remain available as hosted providers for higher quality and fallback.
+- Gemini remains available as a hosted provider for comparison and fallback.
 - The code stays modular so provider changes do not affect ingestion, chunking, memory, or prompt construction.

@@ -423,11 +423,12 @@ class ProviderLLMService:
         self.token_counter = token_counter
         self.logger = logging.getLogger(self.__class__.__name__)
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="document-chat-provider")
-        self.providers: dict[ProviderName, BaseTextProvider] = {
-            "local": local_backend or self._build_local_backend(),
-            "gemini": gemini_backend or GeminiBackend(settings.gemini, token_counter=token_counter),
-            "groq": groq_backend or GroqBackend(settings.groq, token_counter=token_counter),
+        self._provider_overrides: dict[ProviderName, BaseTextProvider | None] = {
+            "local": local_backend,
+            "gemini": gemini_backend,
+            "groq": groq_backend,
         }
+        self.providers: dict[ProviderName, BaseTextProvider] = {}
 
     def generate_response(
         self,
@@ -460,10 +461,12 @@ class ProviderLLMService:
             return fallback_result
 
     def prepare_provider(self, provider_name: ProviderName) -> None:
-        provider = self.providers[provider_name]
+        provider = self.get_provider(provider_name)
         self._prepare_backend(provider, provider_name)
 
     def get_provider(self, provider_name: ProviderName) -> BaseTextProvider:
+        if provider_name not in self.providers:
+            self.providers[provider_name] = self._build_provider(provider_name)
         return self.providers[provider_name]
 
     def _generate_with_provider(
@@ -473,7 +476,7 @@ class ProviderLLMService:
         query: str,
         history: str,
     ) -> GenerationResult:
-        provider = self.providers[provider_name]
+        provider = self.get_provider(provider_name)
         provider_settings = self._provider_settings(provider_name)
         fitted_context, fitted_history, warnings = self._fit_prompt_inputs(
             provider,
@@ -535,6 +538,16 @@ class ProviderLLMService:
         if local_settings.backend == "llama_cpp":
             return LlamaCppBackend(local_settings, token_counter=self.token_counter)
         raise ModelUnavailableError(f"Unsupported local backend '{local_settings.backend}'.")
+
+    def _build_provider(self, provider_name: ProviderName) -> BaseTextProvider:
+        override = self._provider_overrides[provider_name]
+        if override is not None:
+            return override
+        if provider_name == "local":
+            return self._build_local_backend()
+        if provider_name == "gemini":
+            return GeminiBackend(self.settings.gemini, token_counter=self.token_counter)
+        return GroqBackend(self.settings.groq, token_counter=self.token_counter)
 
     def _provider_settings(self, provider_name: ProviderName):
         if provider_name == "local":

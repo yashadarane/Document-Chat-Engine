@@ -58,10 +58,10 @@ class ProviderRoutingSettings(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    default_provider: ProviderName = "local"
+    default_provider: ProviderName = "groq"
     allow_ui_provider_override: bool = True
     enable_fallback: bool = False
-    fallback_provider: ProviderName = "gemini"
+    fallback_provider: ProviderName = "local"
 
 
 class LocalModelOption(BaseModel):

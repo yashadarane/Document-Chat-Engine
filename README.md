@@ -4,9 +4,9 @@ This project implements the supplied PDF assignment as a lightweight **non-RAG**
 
 The app supports three answer providers behind the same document pipeline:
 
-- `local`: laptop-hosted `llama.cpp` model, now defaulting to Qwen2.5 1.5B Instruct
+- `groq`: Groq through `GROQ_API_KEY`, used as the default provider
 - `gemini`: Google AI Studio through `GEMINI_API_KEY`
-- `groq`: Groq through `GROQ_API_KEY`
+- `local`: optional laptop-hosted `llama.cpp` model using Qwen2.5 1.5B Instruct
 
 ## What It Does
 
@@ -22,15 +22,15 @@ This stays within the assignment's non-RAG requirement because it does **not** u
 
 ## Model Decision
 
-The local model path has been simplified to **Qwen2.5 1.5B Instruct GGUF**. It is configured directly instead of exposed through a local-model dropdown.
+Groq is the default answer provider. The local model path remains available as an optional **Qwen2.5 1.5B Instruct GGUF** setup, configured directly instead of exposed through a local-model dropdown.
 
 Models considered during development:
 
-- **Qwen2.5 1.5B Instruct GGUF**: selected as the default local model because it gives the best balance of CPU usability, instruction following, and document Q&A quality among the available small local models.
+- **Qwen2.5 1.5B Instruct GGUF**: retained as the optional local model because it gives the best balance of CPU usability, instruction following, and document Q&A quality among the available small local models.
 - **Phi-3 Mini Instruct GGUF**: evaluated but removed from the UI/config because it was heavier and less consistent in this local document-Q&A setup.
 - **TinyLlama 1.1B Chat GGUF**: evaluated but removed from the UI/config because answer quality was too weak for grounded document Q&A.
 - **Gemini 2.5 Flash**: retained as an optional cloud provider and fallback target.
-- **Groq llama-3.3-70b-versatile**: added as an optional cloud provider through Groq's OpenAI-compatible chat-completions API.
+- **Groq llama-3.3-70b-versatile**: selected as the default cloud provider through Groq's OpenAI-compatible chat-completions API.
 
 The model files may still exist under `app/models`, but only Qwen is exposed by the active config.
 
@@ -44,7 +44,7 @@ Main config sections:
 - `groq`: Groq settings
 - `ocr`: OCR behavior
 
-Current local default:
+Optional local model:
 
 ```yaml
 local_llm:
@@ -109,7 +109,7 @@ http://localhost:8501
 
 ## UI Features
 
-- Provider selector: choose `local`, `gemini`, or `groq`
+- Provider selector: defaults to `groq`; choose `local` or `gemini` when needed
 - Fallback checkbox: retry with the configured fallback provider if the primary provider fails
 - Warm selected provider button
 - Extracted text preview
@@ -136,5 +136,5 @@ The tests cover:
 
 - The prompt is strict and anti-hallucination oriented.
 - The same parsing, chunking, memory, and prompt pipeline is shared across all providers.
-- Qwen is the default local model because the app needs a CPU-friendly local path for demonstration.
-- Gemini and Groq are optional cloud providers for higher-quality responses or fallback testing.
+- Groq is the default provider for faster hosted responses.
+- Qwen remains available as an optional local model for offline or fallback testing.

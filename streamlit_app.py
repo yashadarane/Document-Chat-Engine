@@ -342,9 +342,9 @@ def render_sidebar(settings: Settings) -> tuple[ProviderName, bool, bool]:
 
         provider = st.selectbox(
             "Provider",
-            options=["local", "gemini", "groq"],
-            index=["local", "gemini", "groq"].index(st.session_state["selected_provider"])
-            if st.session_state["selected_provider"] in ["local", "gemini", "groq"]
+            options=["groq", "gemini", "local"],
+            index=["groq", "gemini", "local"].index(st.session_state["selected_provider"])
+            if st.session_state["selected_provider"] in ["groq", "gemini", "local"]
             else 0,
             disabled=not settings.routing.allow_ui_provider_override,
         )
