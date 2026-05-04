@@ -1,10 +1,17 @@
 from __future__ import annotations
 
+import html
+import io
 import os
+from datetime import datetime
 from pathlib import Path
 from typing import Iterable
 
 import streamlit as st
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet
+from reportlab.lib.units import inch
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 
 from app.core.config import ProviderName, Settings, load_settings
 from app.core.exceptions import ChatEngineError
@@ -39,6 +46,75 @@ def reset_chat_state() -> None:
 
 def uploaded_to_incoming(files: Iterable) -> list[IncomingFile]:
     return [IncomingFile(filename=f.name, content_type=f.type, payload=f.getvalue()) for f in files]
+
+
+def format_chat_as_text(messages: list[dict]) -> str:
+    if not messages:
+        return "No chat messages yet.\n"
+
+    lines = ["Document Chat Engine Conversation", ""]
+    for index, message in enumerate(messages, start=1):
+        role = message.get("role", "message").title()
+        content = str(message.get("content", "")).strip()
+        lines.append(f"{index}. {role}")
+        lines.append(content or "[No content]")
+
+        if role == "Assistant":
+            metadata = (
+                f"Provider: {message.get('requested_provider', '-')} | "
+                f"Used: {message.get('backend', '-')} | "
+                f"Fallback: {message.get('fallback_used', False)}"
+            )
+            lines.append(metadata)
+
+        warnings = message.get("warnings") or []
+        for warning in warnings:
+            lines.append(f"Warning: {warning}")
+
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def build_chat_pdf(messages: list[dict]) -> bytes:
+    buffer = io.BytesIO()
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=0.7 * inch,
+        leftMargin=0.7 * inch,
+        topMargin=0.7 * inch,
+        bottomMargin=0.7 * inch,
+    )
+    styles = getSampleStyleSheet()
+    title_style = styles["Title"]
+    heading_style = styles["Heading3"]
+    body_style = styles["BodyText"]
+    body_style.leading = 14
+
+    story = [Paragraph("Document Chat Engine Conversation", title_style), Spacer(1, 0.2 * inch)]
+    if not messages:
+        story.append(Paragraph("No chat messages yet.", body_style))
+    for index, message in enumerate(messages, start=1):
+        role = str(message.get("role", "message")).title()
+        content = html.escape(str(message.get("content", "")).strip() or "[No content]").replace("\n", "<br/>")
+        story.append(Paragraph(f"{index}. {html.escape(role)}", heading_style))
+        story.append(Paragraph(content, body_style))
+
+        if role == "Assistant":
+            metadata = html.escape(
+                f"Provider: {message.get('requested_provider', '-')} | "
+                f"Used: {message.get('backend', '-')} | "
+                f"Fallback: {message.get('fallback_used', False)}"
+            )
+            story.append(Paragraph(f'<font color="#555555">{metadata}</font>', body_style))
+
+        for warning in message.get("warnings") or []:
+            story.append(Paragraph(f"Warning: {html.escape(str(warning))}", body_style))
+        story.append(Spacer(1, 0.16 * inch))
+
+    document.build(story)
+    return buffer.getvalue()
 
 
 def apply_theme() -> None:
@@ -191,6 +267,18 @@ def apply_theme() -> None:
         .stButton > button[kind="primary"] {
             background: #0f766e !important;
             border-color: #14b8a6 !important;
+            color: #ffffff !important;
+        }
+        .stDownloadButton > button {
+            background: #202a33 !important;
+            border: 1px solid #3a4652 !important;
+            border-radius: 8px !important;
+            color: var(--text) !important;
+            font-weight: 650 !important;
+            min-height: 2.35rem;
+        }
+        .stDownloadButton > button:hover {
+            border-color: var(--accent) !important;
             color: #ffffff !important;
         }
         .stChatMessage {
@@ -357,6 +445,36 @@ def render_chat_history() -> None:
                     )
 
 
+def render_chat_downloads() -> None:
+    messages = st.session_state["chat_messages"]
+    has_messages = bool(messages)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    txt_data = format_chat_as_text(messages)
+    pdf_data = build_chat_pdf(messages)
+
+    st.divider()
+    st.markdown('<div class="section-title">Download Conversation</div>', unsafe_allow_html=True)
+    col_txt, col_pdf = st.columns([1, 1])
+    col_txt.download_button(
+        "Download TXT",
+        data=txt_data,
+        file_name=f"docchat_conversation_{timestamp}.txt",
+        mime="text/plain",
+        use_container_width=True,
+        disabled=not has_messages,
+        key=f"download_txt_{len(messages)}",
+    )
+    col_pdf.download_button(
+        "Download PDF",
+        data=pdf_data,
+        file_name=f"docchat_conversation_{timestamp}.pdf",
+        mime="application/pdf",
+        use_container_width=True,
+        disabled=not has_messages,
+        key=f"download_pdf_{len(messages)}",
+    )
+
+
 def render_status_strip(settings: Settings, selected_provider: ProviderName) -> None:
     document_count = len(st.session_state["documents"])
     session_status = "Ready" if st.session_state["active_session_id"] else "No active session"
@@ -467,6 +585,7 @@ def main() -> None:
         render_chat_history()
         user_query = st.chat_input(f"Ask about the uploaded documents using {selected_provider}")
         if not user_query:
+            render_chat_downloads()
             return
 
         st.session_state["chat_messages"].append({"role": "user", "content": user_query})
@@ -517,6 +636,8 @@ def main() -> None:
                         disabled=True,
                         label_visibility="collapsed",
                     )
+
+        render_chat_downloads()
 
 
 if __name__ == "__main__":
